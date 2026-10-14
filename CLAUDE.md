@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-Single-component Lit 3 web component published as `@record-evolution/widget-switch` for the IronFlock platform. Renders one or more Material Design 3 toggle switches (`md-switch`) and emits action events to control IoT devices.
+Single-component Lit 3 web component published as `@ironflock/widget-switch` for the IronFlock platform. Renders one or more Material Design 3 toggle switches (`md-switch`) and emits action events to control IoT devices.
 
 **Versioned custom element tag.** The source defines `@customElement('widget-switch-versionplaceholder')`. At build time, `@rollup/plugin-replace` (in `vite.config.ts`) replaces every `versionplaceholder` occurrence with the `version` string from `package.json`, yielding e.g. `widget-switch-1.1.3`. Consumers must use the version-suffixed tag — this lets multiple widget versions coexist on one page. The `version` instance field on `WidgetSwitch` is replaced the same way. Bumping the version (via `npm version` / `npm run release`) is what regenerates the tag; do not hardcode versions elsewhere.
 

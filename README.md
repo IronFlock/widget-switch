@@ -7,7 +7,7 @@ IronFlock widget: A Lit 3.x web component that renders toggle switches using Mat
 ## Installation
 
 ```bash
-npm i @record-evolution/widget-switch
+npm i @ironflock/widget-switch
 ```
 
 **Peer Dependencies:** This widget requires `@material/web` to be available at runtime via import map or bundled separately.
@@ -16,7 +16,7 @@ npm i @record-evolution/widget-switch
 
 ```html
 <script type="module">
-    import '@record-evolution/widget-switch'
+    import '@ironflock/widget-switch'
 </script>
 
 <widget-switch-1.1.1></widget-switch-1.1.1>
