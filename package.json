@@ -19,7 +19,6 @@
         "thumbnail.webp"
     ],
     "scripts": {
-        "analyze": "cem analyze --litelement",
         "start": "vite build --watch & vite",
         "build": "vite build",
         "watch": "vite build --watch",
@@ -41,7 +40,6 @@
         "@material/web": "^2.4.1"
     },
     "devDependencies": {
-        "@custom-elements-manifest/analyzer": "^0.10.4",
         "@material/web": "^2.4.1",
         "@rollup/plugin-replace": "^6.0.2",
         "json-schema-to-typescript": "^15.0.4",
