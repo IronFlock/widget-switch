@@ -24,7 +24,6 @@ export class WidgetSwitch extends LitElement {
     @state()
     private textActive: boolean = true
 
-    @state() private themeBgColor?: string
     @state() private themeTitleColor?: string
     @state() private themeSubtitleColor?: string
     @state() private themePrimaryColor?: string
@@ -72,7 +71,6 @@ export class WidgetSwitch extends LitElement {
     }
 
     registerTheme(theme?: Theme) {
-        this.themeBgColor = `var(--re-tile-background-color, ${this.theme?.theme_object?.backgroundColor || 'transparent'})`
         this.themeTitleColor = `var(--re-text-color, ${this.theme?.theme_object?.title?.textStyle?.color || 'inherit'})`
         this.themeSubtitleColor = `var(--re-text-color, ${this.theme?.theme_object?.title?.subtextStyle?.color || this.theme?.theme_object?.title?.textStyle?.color || 'inherit'})`
         this.themePrimaryColor = `var(--re-primary-color, ${this.theme?.theme_object?.color?.[0] || '#5470c6'})`
@@ -307,8 +305,7 @@ export class WidgetSwitch extends LitElement {
         return html`
             <div
                 class="wrapper"
-                style="background-color: ${this.themeBgColor}; color: ${this
-                    .themeTitleColor}; --switch-primary-color: ${this
+                style="color: ${this.themeTitleColor}; --switch-primary-color: ${this
                     .themePrimaryColor}; --switch-text-color: ${this.themeTitleColor}"
             >
                 <header>
