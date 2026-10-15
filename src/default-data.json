@@ -1,6 +1,7 @@
 {
     "title": "Machine Switch Panel",
     "subTitle": "Main Line Controls",
+    "size": "normal",
     "dataseries": [
         {
             "label": "Lamp",
@@ -25,6 +26,12 @@
             "actionApp": "coolingSystemApp",
             "actionDevice": 1,
             "actionTopic": "cooling"
+        },
+        {
+            "label": "Only Alarms",
+            "description": "Narrows the event table on this dashboard to alarms.",
+            "parameterKey": "onlyAlarms",
+            "parameterValue": "ALARM"
         }
     ]
 }

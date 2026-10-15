@@ -14,6 +14,10 @@ export type Title = string;
  */
 export type Subtitle = string;
 /**
+ * How large the switches and their labels are drawn. 'small' fits dense control panels, 'normal' is the default, and 'big' suits touch screens and wall displays.
+ */
+export type Size = "small" | "normal" | "big";
+/**
  * Display text identifying this switch. Should clearly describe what the switch controls (e.g., 'Main Power', 'Pump 1', 'Night Mode').
  */
 export type Label = string;
@@ -26,11 +30,11 @@ export type HintText = string;
  */
 export type ONValues = string;
 /**
- * Values that indicate the OFF state. Can be: a single value ('0', 'false', 'OFF'), comma-separated list ('0,false,OFF'), or numeric expression ('<4' means values below 4 are OFF, '>33' means values above 33 are OFF). Values matching neither ON nor OFF show as UNKNOWN.
+ * Values that indicate the OFF state. Can be: a single value ('0', 'false', 'OFF'), comma-separated list ('0,false,OFF'), or numeric expression ('<4' means values below 4 are OFF, '>33' means values above 33 are OFF). A value matching neither ON nor OFF also shows the switch OFF.
  */
 export type OFFValues = string;
 /**
- * The current state value from the backend, used to display the correct switch position. Strongly recommended to bind this to the actual device state column to keep the visual state synchronized with the physical device state.
+ * The current state value from the backend, used to display the correct switch position. Strongly recommended to bind this to the actual device state column to keep the visual state synchronized with the physical device state: after a click the switch waits up to 10 seconds for this value to confirm the new position, then returns to the position it reports. Without a value the switch keeps the position the operator last set. Not needed when URL Parameter Key is set.
  */
 export type SwitchState = string;
 /**
@@ -38,7 +42,15 @@ export type SwitchState = string;
  */
 export type ActionAppTopic = string;
 /**
- * Array of switch configurations. Each entry creates a toggle switch with its own state mapping and optional device action binding.
+ * Turns this switch into a view control: the NAME of the URL parameter it sets (e.g. 'onlyAlarms'). While the switch is ON the parameter holds the URL Parameter Value; while it is OFF the parameter is removed. The switch's position then follows the URL, so it survives a reload and a shared link, and it fires no device action — State Map, Switch State and the action settings are ignored. Every widget that should follow this switch needs a filterAnd condition with "useFilter": true and exactly this name as the bare "value" — e.g. {"column": "status", "operator": "=", "value": "onlyAlarms", "useFilter": true, "dataType": "string"}. While the switch is OFF the frontend drops that condition and the widget shows unfiltered data.
+ */
+export type URLParameterKey = string;
+/**
+ * The value written into the URL parameter while the switch is ON. Defaults to 'true'. A widget following this switch compares it against its own filtered column, so it must match the values stored in that column exactly (same spelling and case), e.g. 'ALARM'. Only used when URL Parameter Key is set.
+ */
+export type URLParameterValue = string;
+/**
+ * Array of switch configurations. Each entry creates a toggle switch with its own state mapping and optional device action binding, or with a URL parameter it sets.
  */
 export type Switches = {
     label?: Label;
@@ -48,20 +60,23 @@ export type Switches = {
     actionDevice?: ActionDeviceTarget;
     actionApp?: ActionApp;
     actionTopic?: ActionAppTopic;
+    parameterKey?: URLParameterKey;
+    parameterValue?: URLParameterValue;
     [k: string]: unknown;
 }[];
 
 /**
- * A toggle switch widget for displaying and controlling binary device states. Use this widget to show ON/OFF status indicators that can also trigger device actions when clicked. Supports configurable state mapping to interpret various data values as ON, OFF, or UNKNOWN states. When connected to a device action, clicking the switch sends commands to control physical devices or trigger backend operations. Multiple switches can be displayed in one widget. Ideal for IoT device control panels, smart home interfaces, equipment control dashboards, or any scenario requiring visual toggle controls with action capabilities.
+ * A toggle switch widget for displaying and controlling binary device states. Use this widget to show ON/OFF status indicators that can also trigger device actions when clicked. Supports configurable state mapping to interpret various data values as ON or OFF. When connected to a device action, clicking the switch sends commands to control physical devices or trigger backend operations. A switch can instead set a URL parameter (parameterKey): while ON it writes parameterValue into the URL parameter of that NAME, while OFF it removes it, so other widgets can filter on it the same way they follow a dropdown filter. Multiple switches can be displayed in one widget, drawn small, normal or big. Ideal for IoT device control panels, smart home interfaces, equipment control dashboards, or any scenario requiring visual toggle controls with action capabilities.
  */
 export interface SwitchConfiguration {
     title?: Title;
     subTitle?: Subtitle;
+    size?: Size;
     dataseries?: Switches;
     [k: string]: unknown;
 }
 /**
- * Defines how data values are interpreted as switch states. Configure which values represent ON and OFF. Values not matching either state display as UNKNOWN (neutral position).
+ * Defines how data values are interpreted as switch states. Configure which values represent ON and OFF. A value matching neither shows the switch OFF. Not needed when URL Parameter Key is set.
  */
 export interface StateMap {
     on?: ONValues;

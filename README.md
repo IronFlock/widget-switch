@@ -1,6 +1,6 @@
 # widget-switch
 
-IronFlock widget: A Lit 3.x web component that renders toggle switches using Material Design 3 components. Supports multiple switches with configurable state mapping and IoT device action triggers.
+IronFlock widget: A Lit 3.x web component that renders toggle switches using Material Design 3 components. Supports multiple switches with configurable state mapping and IoT device action triggers, or URL parameters that other widgets filter on, in three sizes.
 
 ![screenshot](thumbnail.png)
 
@@ -32,8 +32,10 @@ The widget accepts an `inputData` property with the following structure:
 interface SwitchConfiguration {
     title?: string
     subTitle?: string
+    size?: 'small' | 'normal' | 'big' // default 'normal'
     dataseries?: Array<{
         label?: string
+        description?: string // hint text below the label
         value?: string
         stateMap?: {
             on: string // Value(s) representing ON state
@@ -42,10 +44,8 @@ interface SwitchConfiguration {
         actionDevice?: string
         actionApp?: string
         actionTopic?: string
-        styling?: {
-            labelColor?: string
-            valueColor?: string
-        }
+        parameterKey?: string // makes this a view switch, see below
+        parameterValue?: string // written while ON, default 'true'
     }>
 }
 ```
@@ -83,6 +83,19 @@ element.addEventListener('action-submit', (e) => {
     //   actionTopic: "...",    // Action topic to call
     //   label: "..."           // Switch label
     // }
+})
+```
+
+## URL Parameters
+
+A switch with a `parameterKey` sets a URL parameter instead of firing a device action, the same way `widget-filter-dropdown` does. Its position is read from the `route` property the host passes in:
+
+```javascript
+element.route = '/machines?onlyAlarms=ALARM'
+element.addEventListener('param-submit', (e) => {
+    console.log(e.detail)
+    // ON:  { params: { onlyAlarms: 'ALARM' } }   (parameterValue, default 'true')
+    // OFF: { params: { onlyAlarms: undefined } } (remove the parameter)
 })
 ```
 

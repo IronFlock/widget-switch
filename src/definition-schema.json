@@ -1,14 +1,16 @@
 {
     "title": "Switch Configuration",
-    "description": "A toggle switch widget for displaying and controlling binary device states. Use this widget to show ON/OFF status indicators that can also trigger device actions when clicked. Supports configurable state mapping to interpret various data values as ON, OFF, or UNKNOWN states. When connected to a device action, clicking the switch sends commands to control physical devices or trigger backend operations. Multiple switches can be displayed in one widget. Ideal for IoT device control panels, smart home interfaces, equipment control dashboards, or any scenario requiring visual toggle controls with action capabilities.",
+    "description": "A toggle switch widget for displaying and controlling binary device states. Use this widget to show ON/OFF status indicators that can also trigger device actions when clicked. Supports configurable state mapping to interpret various data values as ON or OFF. When connected to a device action, clicking the switch sends commands to control physical devices or trigger backend operations. A switch can instead set a URL parameter (parameterKey): while ON it writes parameterValue into the URL parameter of that NAME, while OFF it removes it, so other widgets can filter on it the same way they follow a dropdown filter. Multiple switches can be displayed in one widget, drawn small, normal or big. Ideal for IoT device control panels, smart home interfaces, equipment control dashboards, or any scenario requiring visual toggle controls with action capabilities.",
     "aiSelection": {
-        "dataShape": "One value per switch, interpreted as ON or OFF through stateMap, plus an optional device or app action and topic fired on click. Both displays and controls.",
+        "dataShape": "One value per switch, interpreted as ON or OFF through stateMap, plus an optional device or app action and topic fired on click. Both displays and controls. A switch with a parameterKey needs no data instead: it writes parameterValue (default 'true') into the URL parameter named by parameterKey while ON and removes it while OFF, and its position follows that URL parameter.",
         "useWhen": [
             "A binary device state should be shown and changed from the dashboard — a pump, a light, a valve, an enable flag.",
             "An operator needs a control, not only a readout.",
-            "Several related toggles belong together in one control panel."
+            "Several related toggles belong together in one control panel.",
+            "A single on/off view filter — 'only alarms', 'only line A' — should narrow other widgets: set parameterKey and parameterValue, and give each widget to be narrowed a filterAnd condition with useFilter: true and the parameterKey as its value. While the switch is OFF those widgets show unfiltered data."
         ],
         "notFor": [
+            "Choosing one of several filter values, or a filter whose OFF state is another value rather than 'everything' — use widget-filter-dropdown.",
             "A status the user must not be able to change — use widget-signal, which is display-only.",
             "More than two states — use widget-signal for the indicator, or widget-scada for an industrial symbol.",
             "Values that are entered and stored rather than commanded — use widget-form.",
@@ -30,11 +32,25 @@
             "type": "string",
             "order": 2
         },
+        "size": {
+            "title": "Size",
+            "description": "How large the switches and their labels are drawn. 'small' fits dense control panels, 'normal' is the default, and 'big' suits touch screens and wall displays.",
+            "type": "string",
+            "enum": ["small", "normal", "big"],
+            "enumLabels": {
+                "small": "Small",
+                "normal": "Normal",
+                "big": "Big"
+            },
+            "default": "normal",
+            "dataDrivenDisabled": true,
+            "order": 3
+        },
         "dataseries": {
             "title": "Switches",
-            "description": "Array of switch configurations. Each entry creates a toggle switch with its own state mapping and optional device action binding.",
+            "description": "Array of switch configurations. Each entry creates a toggle switch with its own state mapping and optional device action binding, or with a URL parameter it sets.",
             "type": "array",
-            "order": 3,
+            "order": 4,
             "items": {
                 "type": "object",
                 "properties": {
@@ -52,7 +68,7 @@
                     },
                     "stateMap": {
                         "title": "State Map",
-                        "description": "Defines how data values are interpreted as switch states. Configure which values represent ON and OFF. Values not matching either state display as UNKNOWN (neutral position).",
+                        "description": "Defines how data values are interpreted as switch states. Configure which values represent ON and OFF. A value matching neither shows the switch OFF. Not needed when URL Parameter Key is set.",
                         "type": "object",
                         "required": true,
                         "order": 3,
@@ -65,7 +81,7 @@
                             },
                             "off": {
                                 "title": "OFF Values",
-                                "description": "Values that indicate the OFF state. Can be: a single value ('0', 'false', 'OFF'), comma-separated list ('0,false,OFF'), or numeric expression ('<4' means values below 4 are OFF, '>33' means values above 33 are OFF). Values matching neither ON nor OFF show as UNKNOWN.",
+                                "description": "Values that indicate the OFF state. Can be: a single value ('0', 'false', 'OFF'), comma-separated list ('0,false,OFF'), or numeric expression ('<4' means values below 4 are OFF, '>33' means values above 33 are OFF). A value matching neither ON nor OFF also shows the switch OFF.",
                                 "type": "string",
                                 "required": true
                             }
@@ -74,7 +90,7 @@
                     "value": {
                         "title": "Switch State",
                         "type": "string",
-                        "description": "The current state value from the backend, used to display the correct switch position. Strongly recommended to bind this to the actual device state column to keep the visual state synchronized with the physical device state.",
+                        "description": "The current state value from the backend, used to display the correct switch position. Strongly recommended to bind this to the actual device state column to keep the visual state synchronized with the physical device state: after a click the switch waits up to 10 seconds for this value to confirm the new position, then returns to the position it reports. Without a value the switch keeps the position the operator last set. Not needed when URL Parameter Key is set.",
                         "required": false,
                         "order": 4
                     },
@@ -96,6 +112,20 @@
                         "description": "The specific command/topic sent to the app when the switch is clicked. Arguments sent are: True for turning ON, False for turning OFF. Refer to the app's documentation for available topics.",
                         "type": "string",
                         "order": 7
+                    },
+                    "parameterKey": {
+                        "title": "URL Parameter Key",
+                        "description": "Turns this switch into a view control: the NAME of the URL parameter it sets (e.g. 'onlyAlarms'). While the switch is ON the parameter holds the URL Parameter Value; while it is OFF the parameter is removed. The switch's position then follows the URL, so it survives a reload and a shared link, and it fires no device action — State Map, Switch State and the action settings are ignored. Every widget that should follow this switch needs a filterAnd condition with \"useFilter\": true and exactly this name as the bare \"value\" — e.g. {\"column\": \"status\", \"operator\": \"=\", \"value\": \"onlyAlarms\", \"useFilter\": true, \"dataType\": \"string\"}. While the switch is OFF the frontend drops that condition and the widget shows unfiltered data.",
+                        "type": "string",
+                        "dataDrivenDisabled": true,
+                        "order": 8
+                    },
+                    "parameterValue": {
+                        "title": "URL Parameter Value",
+                        "description": "The value written into the URL parameter while the switch is ON. Defaults to 'true'. A widget following this switch compares it against its own filtered column, so it must match the values stored in that column exactly (same spelling and case), e.g. 'ALARM'. Only used when URL Parameter Key is set.",
+                        "type": "string",
+                        "dataDrivenDisabled": true,
+                        "order": 9
                     }
                 }
             }

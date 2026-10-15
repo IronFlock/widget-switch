@@ -31,7 +31,6 @@
 
     <body>
         <div id="demo"></div>
-        <script src="https://storage.googleapis.com/reswarm-images/ObjectRandomizer.js"></script>
 
         <script type="module">
             import { render } from 'lit'
@@ -43,9 +42,10 @@
 
             const tag = unsafeStatic(`widget-switch-${packageJson.version}`)
             const theme = { theme_name: 'light', theme_object: themeObject }
+            const route = () => '/' + location.search
             render(
                 html`
-                    <${tag} .theme="${theme}" .inputData=${data}>
+                    <${tag} .theme="${theme}" .inputData=${data} .route=${route()}>
                         web component is not registered. Make sure to use the tag with the correct version
                         string from the package.json
                     </${tag}>
@@ -53,13 +53,25 @@
                 document.getElementById('demo')
             )
             const widget = document.getElementById('demo').children[0]
-            const keyPathsToRandomize = ['dataseries.0.data.0.value']
-            const inter = setInterval(() => {
-                const randomizedObj = randomizeObjectValues(data, keyPathsToRandomize)
 
-                // console.log('random', randomizedObj.dataseries[0].data[0])
-                widget.inputData = randomizedObj
-                // clearInterval(inter)
+            // Stand in for studio's dashboard-navigator: merge the switch's
+            // params into the URL (undefined removes one) and hand the new
+            // route back to the widget.
+            widget.addEventListener('param-submit', (e) => {
+                const params = new URLSearchParams(location.search)
+                Object.entries(e.detail.params).forEach(([key, value]) =>
+                    value === undefined ? params.delete(key) : params.set(key, value)
+                )
+                const query = params.toString()
+                history.replaceState(null, '', location.pathname + (query ? '?' + query : ''))
+                widget.route = route()
+            })
+
+            // Re-deliver the data every second, as a dashboard does on each
+            // refresh. No device answers here, so a flipped device switch
+            // returns to the reported position once its wait runs out.
+            setInterval(() => {
+                widget.inputData = structuredClone(data)
             }, 1000)
         </script>
     </body>

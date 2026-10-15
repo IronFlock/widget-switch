@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-Single-component Lit 3 web component published as `@ironflock/widget-switch` for the IronFlock platform. Renders one or more Material Design 3 toggle switches (`md-switch`) and emits action events to control IoT devices.
+Single-component Lit 3 web component published as `@ironflock/widget-switch` for the IronFlock platform. Renders one or more Material Design 3 toggle switches (`md-switch`) and emits action events to control IoT devices, or sets URL parameters that other widgets filter on.
 
 **Versioned custom element tag.** The source defines `@customElement('widget-switch-versionplaceholder')`. At build time, `@rollup/plugin-replace` (in `vite.config.ts`) replaces every `versionplaceholder` occurrence with the `version` string from `package.json`, yielding e.g. `widget-switch-1.1.3`. Consumers must use the version-suffixed tag — this lets multiple widget versions coexist on one page. The `version` instance field on `WidgetSwitch` is replaced the same way. Bumping the version (via `npm version` / `npm run release`) is what regenerates the tag; do not hardcode versions elsewhere.
 
@@ -23,19 +23,21 @@ Single-component Lit 3 web component published as `@ironflock/widget-switch` for
 
 **Data flow.**
 1. Host sets the `inputData` property (shape defined by `src/definition-schema.json` → generated `src/definition-schema.d.ts`). The schema is the source of truth and drives the platform's config UI; regenerate the `.d.ts` after schema edits via `npm run types`.
-2. `update()` / `firstUpdated()` calls `transformData()`, which pivots `inputData.dataseries` into a `Map<label, Dataseries>` (deduplicating duplicate labels by appending `-<idx>`) and computes each switch's initial `selected` via `isSelected()`.
+2. `update()` calls `transformData()` whenever `inputData` or `route` changes. It copies `inputData.dataseries` into a `Map<label, Dataseries>` in configured order (deduplicating duplicate labels by appending `-<idx>`) and computes each switch's `selected` in `switchState()`: from the URL for a view switch (one with a `parameterKey`, see below), otherwise from the reported `value` via `isSelected()`, subject to pending requests (see below).
 3. `isSelected()` interprets `stateMap.on` / `stateMap.off`:
    - Operator prefixes `<=`, `<`, `>=`, `>` on `on` (or fallback `off`) drive numeric comparison.
-   - Otherwise comma-separated value lists are matched as strings (quotes stripped).
-   - Returns `undefined` for unknown — switch shows neutral.
-4. `render()` renders each switch with `repeat()` keyed by label, attaching `actionApp` / `actionDevice` / `actionTopic` / `label` as Lit properties on the `md-switch` element.
-5. On `change`, `handleActionSubmit()` dispatches a non-bubbling `action-submit` `CustomEvent` with `{ args, actionApp, actionDevice, actionTopic, label }` — the IronFlock host listens for this to invoke device actions.
+   - Otherwise comma-separated value lists are matched as strings (surrounding quotes stripped).
+   - Returns `undefined` for unknown. `md-switch` has no neutral state, so an unknown value draws the switch OFF.
+4. `render()` renders each switch with `repeat()` keyed by label, binding `.selected` through `live()` so every render puts the switch back in its computed position even when that position has not changed since the last render (a plain binding skips the DOM when the value is unchanged, which left a flipped switch flipped). `updated()` then copies each `md-switch`'s `selected` onto its inner checkbox: @material/web 2.4.1 binds that checkbox's `checked` *attribute*, which a browser ignores once the user has clicked it, so without the copy a switch moved by anything but a click kept its checkbox on the old position and the next click toggled from there. The `size` attribute on `.wrapper` (`small` | `normal` | `big`) sets `--switch-scale` plus the label and hint font sizes; the scale multiplies the `md-switch` track, handle and state-layer tokens and the gaps. `normal` is the Material default size.
+5. On `change`, `handleChange()` dispatches a non-bubbling `action-submit` `CustomEvent` with `{ args, actionApp, actionDevice, actionTopic, label }` — the IronFlock host listens for this to invoke device actions. The event is fire-and-forget: the widget never learns whether the action succeeded.
+
+**Pending requests.** Because of that, `handleChange()` records the flipped position in `requests` (keyed by label). On a switch with a reported `value`, the request carries a `CONFIRM_TIMEOUT_MS` (10 s) timer: until the report agrees or the timer fires, the switch holds the operator's position across data refreshes; afterwards the report wins, so a failed action returns the switch to the device's real state. On a switch with no `value` there is nothing to confirm, and the request is simply the switch's state.
+
+**View switches (URL parameters).** A switch with `parameterKey` set dispatches a bubbling, composed `param-submit` with `detail: { params: { [parameterKey]: parameterValue || 'true' } }` when turned ON and `{ [parameterKey]: undefined }` when turned OFF — the convention widget-filter-dropdown uses. It fires no `action-submit`. Studio's `dashboard-navigator` merges the params into the URL (undefined removes one) and hands the new URL back as the `route` property; the switch reads its position from there, so it survives a reload and a shared link. Other widgets follow it through a `filterAnd` condition with `useFilter: true`; studio drops that condition while the parameter is absent. Two switches on the same key with different values behave like radio buttons.
 
 **Theming.** `registerTheme()` reads CSS custom properties (`--re-text-color`, `--re-primary-color`) from the host and falls back to a `theme` property of shape `{ theme_name, theme_object }` (ECharts-like: `title.textStyle.color`, `title.subtextStyle.color`, `color[0]`). Resolved values are pushed into `--switch-primary-color` / `--switch-text-color` which drive the `md-switch` Material tokens in the static styles. The default primary color is `#5470c6`. These are not snapshotted: `registerTheme()` stores a `var(--re-…, <theme value>)` chain, so a change to the host property repaints the tile live without the widget being told. The widget paints no background of its own: studio's `widget-item` already paints `--re-tile-background-color` on the tile, and painting it again here composited a translucent tile colour twice.
 
-**Demo (`demo/index.html`).** Imports the source TS directly, builds the version-suffixed tag at runtime from `package.json`, applies `demo/themes/light.json`, and randomizes `dataseries.0.data.0.value` every second via the external `ObjectRandomizer.js` from `storage.googleapis.com/reswarm-images`. Use this to exercise reactive updates locally.
-
-**`applyData()` is currently a no-op** — kept as a hook for the resize-observer-driven layout pattern shared with sibling widgets in this repo.
+**Demo (`demo/index.html`).** Imports the source TS directly, builds the version-suffixed tag at runtime from `package.json`, applies `demo/themes/light.json`, stands in for studio's `param-submit` handling (it rewrites `location.search` and passes `'/' + location.search` back as `route`), and re-delivers an unchanged copy of the data every second, as a dashboard refresh does. No device answers in the demo, so a flipped device switch shows the fallback after the confirm timeout.
 
 ## `aiSelection` in `src/definition-schema.json`
 
