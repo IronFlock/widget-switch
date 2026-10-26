@@ -133,7 +133,7 @@ element.theme = {
 npm run start    # Dev server at localhost:8000/demo/
 npm run build    # Production build to dist/
 npm run types    # Regenerate TypeScript types from schema
-npm run release  # Build, bump version, push to git with tag
+just release-patch  # release pull request; its merge publishes to npm
 ```
 
 ## License
