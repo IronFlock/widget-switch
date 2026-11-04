@@ -242,6 +242,9 @@ export class WidgetSwitch extends LitElement {
             box-sizing: border-box;
             position: relative;
             margin: auto;
+            /* The tile is the container that .wrapper's cqh/cqw padding
+               measures; without one they resolve against the viewport. */
+            container-type: size;
         }
 
         .paging:not([active]) {
