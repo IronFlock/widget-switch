@@ -50,6 +50,18 @@ export type URLParameterKey = string;
  */
 export type URLParameterValue = string;
 /**
+ * What every click writes into Column: a constant, or bound to a column, such as the id of the record shown on this page. Converted to the column's type (number, true/false).
+ */
+export type Value = string;
+/**
+ * More columns of the row Write to Column writes, each with a fixed or bound value, such as the id of the record the switch belongs to. While one of them has no value (its binding has delivered none yet), the switch is disabled, so it never writes a row without its key.
+ */
+export type ExtraColumns = {
+    targetColumn?: Column;
+    value?: Value;
+    [k: string]: unknown;
+}[];
+/**
  * Array of switch configurations. Each entry creates a toggle switch with its own state mapping and optional device action binding, or with a URL parameter it sets.
  */
 export type Switches = {
@@ -62,11 +74,13 @@ export type Switches = {
     actionTopic?: ActionAppTopic;
     parameterKey?: URLParameterKey;
     parameterValue?: URLParameterValue;
+    targetColumn?: WriteToColumn;
+    extraColumns?: ExtraColumns;
     [k: string]: unknown;
 }[];
 
 /**
- * A toggle switch widget for displaying and controlling binary device states. Use this widget to show ON/OFF status indicators that can also trigger device actions when clicked. Supports configurable state mapping to interpret various data values as ON or OFF. When connected to a device action, clicking the switch sends commands to control physical devices or trigger backend operations. A switch can instead set a URL parameter (parameterKey): while ON it writes parameterValue into the URL parameter of that NAME, while OFF it removes it, so other widgets can filter on it the same way they follow a dropdown filter. Multiple switches can be displayed in one widget, drawn small, normal or big. Ideal for IoT device control panels, smart home interfaces, equipment control dashboards, or any scenario requiring visual toggle controls with action capabilities.
+ * Toggle switches that show an on/off state and change it on click: a switch calls a device action, stores its position in a table (targetColumn), or sets a URL parameter that other widgets filter on (parameterKey). Several switches fit in one tile, drawn small, normal or big.
  */
 export interface SwitchConfiguration {
     title?: Title;
@@ -93,5 +107,17 @@ export interface ActionDeviceTarget {
  * The application/service on the target device that handles the switch command. Select from available apps installed on the device.
  */
 export interface ActionApp {
+    [k: string]: unknown;
+}
+/**
+ * Stores the switch's position in a table: every click writes a row, with true in this column for ON and false for OFF (1 and 0 in a numeric column), plus the Extra Columns, as a form does. Bind Switch State to the latest value of the same column, filtered to the same record, and set State Map to on 'true', off 'false', so the switch shows what is stored. A device action still fires when Action App Topic is set. Ignored when URL Parameter Key is set.
+ */
+export interface WriteToColumn {
+    [k: string]: unknown;
+}
+/**
+ * The column this value goes into, normally in the same table as Write to Column.
+ */
+export interface Column {
     [k: string]: unknown;
 }

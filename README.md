@@ -46,6 +46,8 @@ interface SwitchConfiguration {
         actionTopic?: string
         parameterKey?: string // makes this a view switch, see below
         parameterValue?: string // written while ON, default 'true'
+        targetColumn?: ColumnRef // stores the position in a table, see below
+        extraColumns?: Array<{ targetColumn?: ColumnRef; value?: string }>
     }>
 }
 ```
@@ -96,6 +98,20 @@ element.addEventListener('param-submit', (e) => {
     console.log(e.detail)
     // ON:  { params: { onlyAlarms: 'ALARM' } }   (parameterValue, default 'true')
     // OFF: { params: { onlyAlarms: undefined } } (remove the parameter)
+})
+```
+
+## Table Writes
+
+A switch with a `targetColumn` stores its position in a table, as a form does: every click dispatches a `data-submit` with one row, the `extraColumns` (such as the id of the record the switch belongs to) and then the switch's own column, `true` for ON and `false` for OFF (`1`/`0` in a numeric column). Bind `value` to the latest value of the same column for that record, with `stateMap` `{ "on": "true", "off": "false" }`, and the switch shows what is stored. While an extra column has no value yet, the switch is disabled. It fires `action-submit` only when it also has an `actionTopic`.
+
+```javascript
+element.addEventListener('data-submit', (e) => {
+    console.log(e.detail)
+    // [
+    //   { swarm_app_databackend_key: 1, table_name: 'model_settings', column_name: 'model_id', value: 'model-a' },
+    //   { swarm_app_databackend_key: 1, table_name: 'model_settings', column_name: 'tensorrt', value: true }
+    // ]
 })
 ```
 

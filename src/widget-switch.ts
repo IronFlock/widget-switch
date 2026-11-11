@@ -22,6 +22,98 @@ const DEFAULT_PARAMETER_VALUE = 'true'
 // before it falls back to the state the device reports.
 const CONFIRM_TIMEOUT_MS = 10000
 
+// A table column a write switch fills, as the targetColumn picker stored it.
+// The host resolves the app's key and checks the rest.
+type ColumnRef = {
+    swarm_app_databackend_key?: unknown
+    tablename?: unknown
+    column?: unknown
+    dataType?: unknown
+}
+
+// One column value, as data-submit carries it. The host groups the items into
+// one row per table and adds tsp.
+type ValueItem = {
+    swarm_app_databackend_key?: unknown
+    table_name?: unknown
+    column_name?: unknown
+    value: unknown
+}
+
+// A picked column, or undefined when the config names no table and column.
+function columnRef(target: unknown): ColumnRef | undefined {
+    if (!target || typeof target !== 'object') return undefined
+    const ref = target as ColumnRef
+    const named = (part: unknown) => typeof part === 'string' && part.trim() !== ''
+    return named(ref.tablename) && named(ref.column) ? ref : undefined
+}
+
+// The extra columns that name a column, with what each writes. A malformed
+// list counts as empty.
+function extraColumns(ds: Dataseries): { ref: ColumnRef; value: unknown }[] {
+    if (!Array.isArray(ds.extraColumns)) return []
+    return ds.extraColumns.flatMap((extra) => {
+        const ref = columnRef(extra?.targetColumn)
+        return ref ? [{ ref, value: extra?.value }] : []
+    })
+}
+
+function hasNoValue(value: unknown): boolean {
+    return value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+}
+
+// A value as its column's type wants it. The editor stores a constant as text,
+// so '12' or 'true' becomes a number or a boolean for those columns. What does
+// not convert is written as it is, and the host reports the failed row.
+function columnValue(value: unknown, dataType: unknown): unknown {
+    if (dataType === 'boolean') {
+        if (typeof value === 'boolean') return value
+        if (typeof value === 'number') return value !== 0
+        const text = String(value).trim().toLowerCase()
+        if (text === 'true' || text === '1') return true
+        if (text === 'false' || text === '0') return false
+        return value
+    }
+    if (dataType === 'numeric' || dataType === 'bigint') {
+        if (typeof value === 'boolean') return value ? 1 : 0
+        if (typeof value === 'number') return value
+        const text = String(value).trim()
+        const n = Number(text)
+        if (text === '' || !Number.isFinite(n)) return value
+        // A bigint id beyond 2^53 would lose digits as a number.
+        return dataType === 'bigint' && !Number.isSafeInteger(n) ? text : n
+    }
+    if (dataType === 'string' && (typeof value === 'boolean' || typeof value === 'number'))
+        return String(value)
+    return value
+}
+
+function valueItem(ref: ColumnRef, value: unknown): ValueItem {
+    return {
+        swarm_app_databackend_key: ref.swarm_app_databackend_key,
+        table_name: ref.tablename,
+        column_name: ref.column,
+        value: columnValue(value, ref.dataType)
+    }
+}
+
+// A switch that stores its position in a table. A view switch never does.
+function isWriteSwitch(ds: Dataseries): boolean {
+    return !ds.parameterKey && columnRef(ds.targetColumn) !== undefined
+}
+
+// The row a write switch stores for a position, or undefined while an extra
+// column has no value: a row without its record's key would land nowhere.
+// The switch's own column comes last, so it wins over an extra column that
+// names the same column (the host keeps the later item).
+function rowItems(ds: Dataseries, selected: boolean): ValueItem[] | undefined {
+    const target = isWriteSwitch(ds) ? columnRef(ds.targetColumn) : undefined
+    if (!target) return undefined
+    const extras = extraColumns(ds)
+    if (extras.some((extra) => hasNoValue(extra.value))) return undefined
+    return [...extras.map((extra) => valueItem(extra.ref, extra.value)), valueItem(target, selected)]
+}
+
 @customElement('widget-switch-versionplaceholder')
 export class WidgetSwitch extends LitElement {
     @property({ type: Object })
@@ -101,6 +193,8 @@ export class WidgetSwitch extends LitElement {
                 actionTopic: ds?.actionTopic,
                 parameterKey: ds?.parameterKey,
                 parameterValue: ds?.parameterValue,
+                targetColumn: ds?.targetColumn,
+                extraColumns: ds?.extraColumns,
                 selected: this.switchState(ds, label ?? '', params)
             }
             this.dataSets.set(pds.label ?? '', pds)
@@ -209,6 +303,16 @@ export class WidgetSwitch extends LitElement {
             return
         }
 
+        // A write switch is disabled while its row is incomplete; if an extra
+        // column lost its value after the switch was drawn, nothing is written
+        // and the next render puts the switch back.
+        const write = isWriteSwitch(ds)
+        const row = write ? rowItems(ds, selected) : undefined
+        if (write && !row) {
+            this.requestUpdate()
+            return
+        }
+
         const label = ds.label ?? ''
         clearTimeout(this.requests.get(label)?.timer)
         const timer = this.isReported(ds)
@@ -218,6 +322,18 @@ export class WidgetSwitch extends LitElement {
               }, CONFIRM_TIMEOUT_MS)
             : undefined
         this.requests.set(label, { selected, timer })
+
+        // The row goes to the host, which writes it into the app's table; the
+        // stored value comes back through the switch's value binding.
+        if (row) {
+            this.dispatchEvent(
+                new CustomEvent('data-submit', { detail: row, bubbles: false, composed: false })
+            )
+        }
+
+        // A write switch calls a device only when it names a topic; any other
+        // switch fires its action as before.
+        if (write && !ds.actionTopic) return
 
         const payload = {
             args: selected,
@@ -366,13 +482,29 @@ export class WidgetSwitch extends LitElement {
                 var(--switch-primary-color, #5470c6) 50%,
                 transparent
             );
-            --md-switch-unselected-handle-color: var(--switch-text-color, #464646);
-            --md-switch-unselected-track-color: color-mix(
-                in srgb,
-                var(--switch-text-color, #464646) 20%,
-                transparent
-            );
-            --md-switch-unselected-track-outline-color: var(--switch-text-color, #464646);
+            /* OFF. Material 2.4.1 names these without "unselected" (up to
+               1.2.2 the widget set --md-switch-unselected-*, which nothing
+               reads, so an OFF switch kept Material's light lavender track,
+               also on dark tiles), and each state has a token of its own. */
+            --switch-off-track: color-mix(in srgb, var(--switch-text-color, #464646) 20%, transparent);
+            --md-switch-handle-color: var(--switch-text-color, #464646);
+            --md-switch-hover-handle-color: var(--switch-text-color, #464646);
+            --md-switch-focus-handle-color: var(--switch-text-color, #464646);
+            --md-switch-pressed-handle-color: var(--switch-text-color, #464646);
+            --md-switch-track-color: var(--switch-off-track);
+            --md-switch-hover-track-color: var(--switch-off-track);
+            --md-switch-focus-track-color: var(--switch-off-track);
+            --md-switch-pressed-track-color: var(--switch-off-track);
+            --md-switch-track-outline-color: var(--switch-text-color, #464646);
+            --md-switch-hover-track-outline-color: var(--switch-text-color, #464646);
+            --md-switch-focus-track-outline-color: var(--switch-text-color, #464646);
+            --md-switch-pressed-track-outline-color: var(--switch-text-color, #464646);
+            /* A write switch waiting for its record is disabled. Material
+               draws that in its light scheme's near-black, which vanishes on
+               a dark tile; the text colour reads on any. */
+            --md-switch-disabled-handle-color: var(--switch-text-color, #464646);
+            --md-switch-disabled-track-outline-color: var(--switch-text-color, #464646);
+            --md-switch-disabled-selected-track-color: var(--switch-text-color, #464646);
         }
     `
 
@@ -415,6 +547,7 @@ export class WidgetSwitch extends LitElement {
                                         ><md-switch
                                             aria-label="${label}"
                                             .selected="${live(!!ds.selected)}"
+                                            ?disabled=${isWriteSwitch(ds) && !rowItems(ds, !!ds.selected)}
                                             @change="${(e: Event) => this.handleChange(e, ds)}"
                                         ></md-switch
                                     ></label>
