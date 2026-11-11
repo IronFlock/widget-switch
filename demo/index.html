@@ -37,8 +37,38 @@
             import { html, unsafeStatic } from 'lit/static-html.js'
             import packageJson from '../package.json'
             import '../src/widget-switch.ts'
-            import data from '../src/default-data.json'
+            import defaultData from '../src/default-data.json'
             import themeObject from './themes/light.json'
+
+            // A switch that stores its position in a table, which only a
+            // running project has, so it is added here rather than to the
+            // default config. ?nokey leaves its record id empty, as a binding
+            // that has delivered nothing yet does: the switch is disabled.
+            const recordId = new URLSearchParams(location.search).has('nokey') ? '' : 'model-a'
+            const data = structuredClone(defaultData)
+            data.dataseries.push({
+                label: 'Use TensorRT',
+                description: 'Stored per model: every click writes a row with the model id.',
+                stateMap: { on: 'true', off: 'false' },
+                value: false,
+                targetColumn: {
+                    swarm_app_databackend_key: 1,
+                    tablename: 'model_settings',
+                    column: 'tensorrt',
+                    dataType: 'boolean'
+                },
+                extraColumns: [
+                    {
+                        targetColumn: {
+                            swarm_app_databackend_key: 1,
+                            tablename: 'model_settings',
+                            column: 'model_id',
+                            dataType: 'string'
+                        },
+                        value: recordId
+                    }
+                ]
+            })
 
             const tag = unsafeStatic(`widget-switch-${packageJson.version}`)
             const theme = { theme_name: 'light', theme_object: themeObject }
@@ -66,6 +96,20 @@
                 history.replaceState(null, '', location.pathname + (query ? '?' + query : ''))
                 widget.route = route()
             })
+
+            // Stand in for studio's widget-item: "write" the row, and let the
+            // stored value come back through the switch's binding half a
+            // second later, as a realtime row does.
+            widget.addEventListener('data-submit', (e) => {
+                console.log('data-submit', e.detail)
+                const stored = e.detail.find((item) => item.column_name === 'tensorrt')
+                const ds = data.dataseries.find((d) => d.targetColumn?.column === 'tensorrt')
+                setTimeout(() => {
+                    ds.value = stored.value
+                    widget.inputData = structuredClone(data)
+                }, 500)
+            })
+            widget.addEventListener('action-submit', (e) => console.log('action-submit', e.detail))
 
             // Re-deliver the data every second, as a dashboard does on each
             // refresh. No device answers here, so a flipped device switch

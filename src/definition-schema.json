@@ -1,21 +1,19 @@
 {
     "title": "Switch Configuration",
-    "description": "A toggle switch widget for displaying and controlling binary device states. Use this widget to show ON/OFF status indicators that can also trigger device actions when clicked. Supports configurable state mapping to interpret various data values as ON or OFF. When connected to a device action, clicking the switch sends commands to control physical devices or trigger backend operations. A switch can instead set a URL parameter (parameterKey): while ON it writes parameterValue into the URL parameter of that NAME, while OFF it removes it, so other widgets can filter on it the same way they follow a dropdown filter. Multiple switches can be displayed in one widget, drawn small, normal or big. Ideal for IoT device control panels, smart home interfaces, equipment control dashboards, or any scenario requiring visual toggle controls with action capabilities.",
+    "description": "Toggle switches that show an on/off state and change it on click: a switch calls a device action, stores its position in a table (targetColumn), or sets a URL parameter that other widgets filter on (parameterKey). Several switches fit in one tile, drawn small, normal or big.",
     "aiSelection": {
-        "dataShape": "One value per switch, interpreted as ON or OFF through stateMap, plus an optional device or app action and topic fired on click. Both displays and controls. A switch with a parameterKey needs no data instead: it writes parameterValue (default 'true') into the URL parameter named by parameterKey while ON and removes it while OFF, and its position follows that URL parameter.",
+        "dataShape": "One value per switch, read as ON or OFF through stateMap. A click fires the switch's device action (actionApp, actionTopic), or with targetColumn writes a row: true or false plus extraColumns such as a record id, with value bound to the same column. A switch with parameterKey needs no data: while ON the URL parameter holds parameterValue (default 'true'), while OFF it is removed.",
         "useWhen": [
-            "A binary device state should be shown and changed from the dashboard — a pump, a light, a valve, an enable flag.",
-            "An operator needs a control, not only a readout.",
-            "Several related toggles belong together in one control panel.",
-            "A single on/off view filter — 'only alarms', 'only line A' — should narrow other widgets: set parameterKey and parameterValue, and give each widget to be narrowed a filterAnd condition with useFilter: true and the parameterKey as its value. While the switch is OFF those widgets show unfiltered data."
+            "A binary device state an operator should see and change — a pump, a light, a valve, an enable flag.",
+            "An on/off setting stored per record, such as a feature turned on for one model: targetColumn, with the record id in extraColumns.",
+            "An on/off view filter such as 'only alarms': parameterKey and parameterValue, and each widget to narrow gets a filterAnd condition with useFilter: true and the parameterKey as value. While OFF they show everything."
         ],
         "notFor": [
-            "Choosing one of several filter values, or a filter whose OFF state is another value rather than 'everything' — use widget-filter-dropdown.",
-            "A status the user must not be able to change — use widget-signal, which is display-only.",
-            "More than two states — use widget-signal for the indicator, or widget-scada for an industrial symbol.",
-            "Values that are entered and stored rather than commanded — use widget-form.",
+            "Choosing among several filter values, or a filter whose OFF state is another value — use widget-filter-dropdown.",
+            "A status users must not change, or more than two states — use widget-signal.",
+            "Text, numbers or choices that are entered and stored, or several settings saved together — use widget-form.",
             "The history of the switching — use widget-statehistory.",
-            "A tank, valve or pump that should be drawn as itself and animated — use widget-scada."
+            "A tank, valve or pump drawn as itself and animated — use widget-scada."
         ]
     },
     "type": "object",
@@ -126,6 +124,38 @@
                         "type": "string",
                         "dataDrivenDisabled": true,
                         "order": 9
+                    },
+                    "targetColumn": {
+                        "title": "Write to Column",
+                        "description": "Stores the switch's position in a table: every click writes a row, with true in this column for ON and false for OFF (1 and 0 in a numeric column), plus the Extra Columns, as a form does. Bind Switch State to the latest value of the same column, filtered to the same record, and set State Map to on 'true', off 'false', so the switch shows what is stored. A device action still fires when Action App Topic is set. Ignored when URL Parameter Key is set.",
+                        "type": "targetColumn",
+                        "dataDrivenDisabled": true,
+                        "order": 10
+                    },
+                    "extraColumns": {
+                        "title": "Extra Columns",
+                        "description": "More columns of the row Write to Column writes, each with a fixed or bound value, such as the id of the record the switch belongs to. While one of them has no value (its binding has delivered none yet), the switch is disabled, so it never writes a row without its key.",
+                        "type": "array",
+                        "dataDrivenDisabled": true,
+                        "order": 11,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "targetColumn": {
+                                    "title": "Column",
+                                    "description": "The column this value goes into, normally in the same table as Write to Column.",
+                                    "type": "targetColumn",
+                                    "dataDrivenDisabled": true,
+                                    "order": 1
+                                },
+                                "value": {
+                                    "title": "Value",
+                                    "description": "What every click writes into Column: a constant, or bound to a column, such as the id of the record shown on this page. Converted to the column's type (number, true/false).",
+                                    "type": "string",
+                                    "order": 2
+                                }
+                            }
+                        }
                     }
                 }
             }
