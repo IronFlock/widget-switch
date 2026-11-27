@@ -13,7 +13,8 @@
             "A status users must not change, or more than two states — use widget-signal.",
             "Text, numbers or choices that are entered and stored, or several settings saved together — use widget-form.",
             "The history of the switching — use widget-statehistory.",
-            "A tank, valve or pump drawn as itself and animated — use widget-scada."
+            "A tank, valve or pump drawn as itself and animated — use widget-scada.",
+            "Several controls together in one bar — command buttons, switches, sliders, mode choices — writing to a table or setting URL parameters — use widget-toolbar."
         ]
     },
     "type": "object",
